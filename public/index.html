@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Flinks Bank Connect Demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; color: #111; }
+  pre { background: #f5f5f5; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.8rem; }
+  h1 { font-size: 1.4rem; margin-bottom: 0.4rem; }
+  h2 { font-size: 1.15rem; margin-top: 28px; }
+  button { padding: 10px 16px; font-size: 1rem; cursor: pointer; }
+  .note {
+    background: #fff8e6; border: 1px solid #f0d78c; border-radius: 8px;
+    padding: 12px 14px; font-size: 0.92rem; line-height: 1.45; margin: 16px 0;
+  }
+  #iframe-wrap {
+    margin: 20px 0;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    min-height: 720px;
+    background: #111;
+  }
+  #iframe-wrap.hidden { display: none; }
+  #flinks-connect {
+    width: 100%;
+    height: 720px;
+    border: 0;
+    display: block;
+  }
+  #steps { list-style: none; padding: 0; margin: 24px 0; }
+  #steps li {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 6px; margin-bottom: 4px;
+    color: #888; font-size: 0.95rem;
+  }
+  #steps li .dot {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid #ccc; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; color: #fff;
+  }
+  #steps li.active { color: #111; font-weight: 600; background: #eef4ff; }
+  #steps li.active .dot { border-color: #2563eb; background: #2563eb; }
+  #steps li.done { color: #111; }
+  #steps li.done .dot { border-color: #16a34a; background: #16a34a; }
+  #steps li.done .dot::after { content: '✓'; }
+  #steps li.error .dot { border-color: #dc2626; background: #dc2626; }
+  #steps li.error .dot::after { content: '!'; }
+  .hint { color: #555; font-size: 0.9rem; }
+  code { background: #eee; padding: 1px 5px; border-radius: 4px; }
+
+  #accounts { display: grid; gap: 12px; margin: 12px 0 20px; }
+  #accounts:empty { display: none; }
+  .account-card {
+    border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 18px;
+    background: #fff;
+  }
+  .account-card h3 { margin: 0 0 8px; font-size: 1.05rem; }
+  .account-meta { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 0.92rem; }
+  .account-meta dt { color: #666; }
+  .account-meta dd { margin: 0; font-weight: 500; }
+  .success-banner {
+    display: none; align-items: center; gap: 12px;
+    background: #ecfdf5; border: 1px solid #86efac; border-radius: 10px;
+    padding: 14px 16px; margin: 16px 0;
+  }
+  .success-banner.visible { display: flex; }
+  .success-banner .check {
+    width: 36px; height: 36px; border-radius: 50%; background: #22c55e;
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; flex-shrink: 0;
+  }
+  details.raw { margin-top: 8px; }
+  details.raw summary { cursor: pointer; color: #555; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+  <h1>Flinks Bank Connect — Demo</h1>
+  <p>
+    Same flow as Dashboard → Connect → Embedded: Institution Selection → login →
+    Account Selection → Confirmation. Sandbox credentials:
+    <code>Greatday</code> / <code>Everyday</code>.
+  </p>
+
+  <div class="note">
+    <strong>Why you don’t see all banks:</strong> this app runs in Flinks
+    <strong>SANDBOX / Toolbox</strong> with <code>demo=true</code>. In sandbox, the
+    only selectable institution is the dummy bank <strong>FlinksCapital</strong>.
+    Real banks (RBC, TD, Chase, etc.) appear only on a <strong>production</strong>
+    instance — not in sandbox.
+  </div>
+
+  <button id="reconnect-btn" type="button">Reconnect</button>
+
+  <ol id="steps">
+    <li data-step="consent"><span class="dot"></span> Consent</li>
+    <li data-step="institution"><span class="dot"></span> Institution Selection</li>
+    <li data-step="auth"><span class="dot"></span> Account Authentication</li>
+    <li data-step="mfa"><span class="dot"></span> Account Validation — MFA</li>
+    <li data-step="selection"><span class="dot"></span> Account Selection</li>
+    <li data-step="confirmation"><span class="dot"></span> Confirmation</li>
+  </ol>
+
+  <div id="iframe-wrap">
+    <iframe
+      id="flinks-connect"
+      title="Flinks Connect"
+      allow="camera; microphone"
+    ></iframe>
+  </div>
+  <p class="hint" id="status">Loading Flinks Connect…</p>
+
+  <div id="success-banner" class="success-banner" aria-live="polite">
+    <div class="check">✓</div>
+    <div>
+      <strong>Success! Your account is now connected.</strong>
+      <div class="hint" id="success-sub">Account details from GetAccountsDetail are below.</div>
+    </div>
+  </div>
+
+  <h2>Account details</h2>
+  <div id="accounts"></div>
+
+  <details class="raw">
+    <summary>Raw API response</summary>
+    <pre id="result">Waiting for bank connection…</pre>
+  </details>
+
+  <script src="/app.js"></script>
+</body>
+</html>

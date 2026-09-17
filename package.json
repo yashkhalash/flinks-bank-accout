@@ -1,0 +1,20 @@
+{
+  "name": "flinks-bank-connect-demo",
+  "version": "1.0.0",
+  "description": "Demo app for connecting bank accounts via Flinks Connect",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}
