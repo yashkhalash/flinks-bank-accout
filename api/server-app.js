@@ -45,7 +45,7 @@ app.use(
 );
 app.use(express.json());
 
-const publicDir = path.join(__dirname, 'public');
+const publicDir = path.join(__dirname, '..', 'public');
 app.use(express.static(publicDir));
 
 // Explicit root → public/index.html (local + any host that hits Express for /)
