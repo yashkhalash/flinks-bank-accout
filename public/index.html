@@ -150,11 +150,12 @@
   </p>
 
   <div class="note">
-    <strong>Why you don’t see all banks:</strong> this app runs in Flinks
-    <strong>SANDBOX / Toolbox</strong> with <code>demo=true</code>. In sandbox, the
-    only selectable institution is the dummy bank <strong>FlinksCapital</strong>.
-    Real banks (RBC, TD, Chase, etc.) appear only on a <strong>production</strong>
-    instance — not in sandbox.
+    <strong>Why the bank list differs from the Dashboard preview:</strong>
+    Dashboard → Connect → Embedded can show TD, RBC, BMO, etc. for UI preview only.
+    Those <em>Dashboard Test</em> credentials do not work in your app.
+    For a working embed you must use the <strong>Toolbox</strong> iframe, which only
+    lists <strong>Flinks Capital</strong>. Login: <code>Greatday</code> / <code>Everyday</code>.
+    Real banks appear after Flinks gives you a production instance.
   </div>
 
   <button id="reconnect-btn" type="button">Connect to Flinks</button>

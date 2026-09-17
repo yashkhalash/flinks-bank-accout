@@ -14,16 +14,33 @@ const {
   FLINKS_API_KEY,
   FLINKS_ENV = 'sandbox',
   FLINKS_IFRAME_BASE_URL,
+  FLINKS_SUBDOMAIN,
+  FLINKS_DEMO,
   APP_URL = 'http://localhost:3000',
   PORT = 3000,
 } = process.env;
 
-// Sandbox toolbox iframe. Override with FLINKS_IFRAME_BASE_URL for production instances.
-const iframeBaseUrl =
-  FLINKS_IFRAME_BASE_URL ||
-  (FLINKS_ENV === 'sandbox'
-    ? 'https://toolbox-iframe.private.fin.ag/v2/'
-    : 'https://toolbox-iframe.private.fin.ag/v2/');
+// Prefer explicit FLINKS_IFRAME_BASE_URL. Fallback: subdomain → toolbox.
+// Dashboard "demo.flinks.com" preview is NOT the Toolbox API iframe — mixing
+// a toolbox authorizeToken with demo.flinks.com breaks the widget.
+function resolveIframeBaseUrl() {
+  const raw = (FLINKS_IFRAME_BASE_URL || '').trim();
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    return raw.endsWith('/') ? raw : `${raw}/`;
+  }
+  const sub = (FLINKS_SUBDOMAIN || '').trim();
+  if (sub && !sub.includes('/') && !sub.includes('.')) {
+    return `https://${sub}-iframe.private.fin.ag/v2/`;
+  }
+  return 'https://toolbox-iframe.private.fin.ag/v2/';
+}
+
+const iframeBaseUrl = resolveIframeBaseUrl();
+const isToolboxIframe = /toolbox-iframe\.private\.fin\.ag/i.test(iframeBaseUrl);
+// Toolbox sandbox needs demo=true to show FlinksCapital.
+const useDemoParam =
+  FLINKS_DEMO === 'true' ||
+  (FLINKS_DEMO !== 'false' && isToolboxIframe);
 
 const allowedOrigins = new Set(
   [
@@ -58,7 +75,8 @@ app.get('/api/config', (req, res) => {
   res.json({
     customerId: FLINKS_DASHBOARD_CUSTOMER_ID || FLINKS_CUSTOMER_ID,
     iframeBaseUrl,
-    demo: FLINKS_ENV === 'sandbox',
+    demo: useDemoParam,
+    env: FLINKS_ENV,
     appUrl: APP_URL,
   });
 });

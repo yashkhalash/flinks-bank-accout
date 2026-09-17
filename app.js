@@ -329,7 +329,7 @@ async function loadConnect() {
     };
     iframeEl.src = `${base}?${params.toString()}`;
     statusEl.textContent =
-      'Flinks Connect ready — Institution Selection only lists FlinksCapital in sandbox. Login: Greatday / Everyday.';
+      'Flinks Connect (Toolbox) ready — select Flinks Capital, then Greatday / Everyday.';
   } catch (err) {
     showLoader('Failed to load Connect — is the API running?');
     statusEl.textContent = 'Failed to load Connect.';
