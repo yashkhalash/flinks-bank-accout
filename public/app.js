@@ -5,12 +5,13 @@ const successBanner = document.getElementById('success-banner');
 const successSub = document.getElementById('success-sub');
 const iframeEl = document.getElementById('flinks-connect');
 const iframeWrap = document.getElementById('iframe-wrap');
+const iframeLoader = document.getElementById('iframe-loader');
+const loaderText = document.getElementById('loader-text');
 const stepEls = Object.fromEntries(
   [...document.querySelectorAll('#steps li')].map((el) => [el.dataset.step, el])
 );
 const STEP_ORDER = ['consent', 'institution', 'auth', 'mfa', 'selection', 'confirmation'];
 
-// Only trust postMessage events from Flinks Connect hosts.
 const FLINKS_ORIGIN_RE = /(^|\.)(private\.fin\.ag|flinks\.com)$/i;
 
 let completed = false;
@@ -37,11 +38,24 @@ function setStep(step, status = 'active') {
   if (stepEls[step]) stepEls[step].classList.add(status);
 }
 
+function showLoader(message) {
+  iframeWrap.classList.remove('hidden');
+  iframeLoader.classList.remove('hidden');
+  iframeEl.classList.remove('visible');
+  if (message) loaderText.textContent = message;
+}
+
+function hideLoader() {
+  iframeLoader.classList.add('hidden');
+  iframeEl.classList.add('visible');
+}
+
 function showIframe() {
   iframeWrap.classList.remove('hidden');
 }
 
 function clearIframe() {
+  iframeEl.classList.remove('visible');
   iframeEl.removeAttribute('src');
 }
 
@@ -98,6 +112,14 @@ function mapFlinksStep(step) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function renderAccounts(payload) {
   accountsEl.innerHTML = '';
   const list = payload.Accounts || payload.accounts || [];
@@ -140,14 +162,6 @@ function renderAccounts(payload) {
     `;
     accountsEl.appendChild(card);
   }
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 async function fetchAccounts(loginId, institution, accountIds) {
@@ -213,6 +227,7 @@ function onFlinksMessage(event) {
 
   const step = data.step;
   if (step) {
+    hideLoader();
     statusEl.textContent = `Flinks: ${step}`;
     const mapped = mapFlinksStep(step);
     if (mapped && !completed) setStep(mapped);
@@ -230,9 +245,9 @@ function onFlinksMessage(event) {
   }
 
   if (step === 'COMPONENT_CLOSE_SESSION') {
-    statusEl.textContent = 'Connect closed. Click Reconnect to try again.';
+    statusEl.textContent = 'Connect closed. Click Connect to try again.';
     clearIframe();
-    iframeWrap.classList.add('hidden');
+    showLoader('Click “Connect to Flinks” to start again');
     return;
   }
 
@@ -242,8 +257,6 @@ function onFlinksMessage(event) {
     return;
   }
 
-  // Only finish on REDIRECT. Keep the iframe visible so Confirmation
-  // (success screen) matches the Dashboard Embedded preview.
   if (step !== 'REDIRECT' || completed) return;
 
   const loginId = loginIdFromRedirect(data);
@@ -254,6 +267,7 @@ function onFlinksMessage(event) {
   }
 
   completed = true;
+  hideLoader();
   setStep('confirmation', 'done');
   stepEls.confirmation.classList.add('active');
   statusEl.textContent =
@@ -270,12 +284,14 @@ async function loadConnect() {
   completed = false;
   loadingAccounts = false;
   showIframe();
+  showLoader('Loading Flinks Connect…');
   setStep('consent');
   statusEl.textContent = 'Loading Flinks Connect…';
   resultEl.textContent = 'Waiting for bank connection…';
   accountsEl.innerHTML = '';
   successBanner.classList.remove('visible');
   clearIframe();
+  showLoader('Loading Flinks Connect…');
 
   try {
     const [configRes, tokenRes] = await Promise.all([
@@ -286,6 +302,7 @@ async function loadConnect() {
     const tokenPayload = await tokenRes.json();
 
     if (!tokenRes.ok || !tokenPayload.token) {
+      showLoader('Failed to get authorize token — check Vercel env vars');
       statusEl.textContent = 'Failed to get authorize token.';
       resultEl.textContent = JSON.stringify(tokenPayload, null, 2);
       return;
@@ -296,7 +313,6 @@ async function loadConnect() {
     params.set('innerRedirect', 'true');
     params.set('jsRedirect', 'true');
     params.set('closeEnable', 'true');
-    // Same Account Selection step as Dashboard → Embedded preview.
     params.set('accountSelectorEnable', 'true');
     params.set('showAllOperationsAccounts', 'true');
     if (config.demo) params.set('demo', 'true');
@@ -304,10 +320,18 @@ async function loadConnect() {
     const base = config.iframeBaseUrl.endsWith('/')
       ? config.iframeBaseUrl
       : config.iframeBaseUrl + '/';
+
+    loaderText.textContent = 'Opening Flinks Connect…';
+    iframeEl.onload = () => {
+      setTimeout(() => {
+        if (!iframeLoader.classList.contains('hidden')) hideLoader();
+      }, 1500);
+    };
     iframeEl.src = `${base}?${params.toString()}`;
     statusEl.textContent =
       'Flinks Connect ready — Institution Selection only lists FlinksCapital in sandbox. Login: Greatday / Everyday.';
   } catch (err) {
+    showLoader('Failed to load Connect — is the API running?');
     statusEl.textContent = 'Failed to load Connect.';
     resultEl.textContent = 'Error: ' + err.message;
   }

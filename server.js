@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -24,9 +25,31 @@ const iframeBaseUrl =
     ? 'https://toolbox-iframe.private.fin.ag/v2/'
     : 'https://toolbox-iframe.private.fin.ag/v2/');
 
-app.use(cors({ origin: APP_URL }));
+const allowedOrigins = new Set(
+  [
+    APP_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    'https://flinks-bank-accout-ll2s.vercel.app',
+  ].filter(Boolean)
+);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin) || /\.vercel\.app$/i.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+  })
+);
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Explicit root → public/index.html (needed for Vercel / Express hosting)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Non-secret config the frontend needs to build the Connect iframe URL
 app.get('/api/config', (req, res) => {
@@ -219,6 +242,11 @@ app.post('/api/accounts', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Flinks demo server running at http://localhost:${PORT}`);
-});
+// Local `npm start` listens; on Vercel the platform invokes the exported app.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Flinks demo server running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
