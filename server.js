@@ -44,11 +44,13 @@ app.use(
   })
 );
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
-// Explicit root → public/index.html (needed for Vercel / Express hosting)
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+const publicDir = path.join(__dirname, 'public');
+app.use(express.static(publicDir));
+
+// Explicit root → public/index.html (local + any host that hits Express for /)
+app.get(['/', '/index.html'], (req, res) => {
+  res.sendFile(path.join(publicDir, 'index.html'));
 });
 
 // Non-secret config the frontend needs to build the Connect iframe URL
