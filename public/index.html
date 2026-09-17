@@ -29,17 +29,31 @@
     border: 0;
     display: block;
   }
-  #steps { list-style: none; padding: 0; margin: 24px 0; }
-  #steps li {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 12px; border-radius: 6px; margin-bottom: 4px;
-    color: #888; font-size: 0.95rem;
+  #steps {
+    list-style: none; padding: 0; margin: 24px 0;
+    display: flex; align-items: stretch; gap: 0;
+    overflow-x: auto;
   }
+  #steps li {
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    gap: 8px; flex: 1 1 0; min-width: 110px;
+    padding: 12px 8px; border-radius: 8px;
+    color: #888; font-size: 0.78rem; text-align: center; line-height: 1.25;
+    position: relative;
+  }
+  #steps li:not(:last-child)::after {
+    content: '';
+    position: absolute; top: 22px; left: calc(50% + 14px);
+    width: calc(100% - 28px); height: 2px;
+    background: #d1d5db; z-index: 0;
+  }
+  #steps li.done:not(:last-child)::after { background: #16a34a; }
   #steps li .dot {
-    width: 20px; height: 20px; border-radius: 50%;
+    width: 22px; height: 22px; border-radius: 50%;
     border: 2px solid #ccc; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.75rem; color: #fff;
+    font-size: 0.7rem; color: #fff;
+    background: #fff; z-index: 1; position: relative;
   }
   #steps li.active { color: #111; font-weight: 600; background: #eef4ff; }
   #steps li.active .dot { border-color: #2563eb; background: #2563eb; }
@@ -92,7 +106,7 @@
     instance — not in sandbox.
   </div>
 
-  <button id="reconnect-btn" type="button">Reconnect</button>
+  <button id="reconnect-btn" type="button">Connect to Flinks</button>
 
   <ol id="steps">
     <li data-step="consent"><span class="dot"></span> Consent</li>
