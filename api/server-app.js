@@ -272,6 +272,18 @@ app.post('/api/accounts', async (req, res) => {
       if (filtered.length) payload.Accounts = filtered;
     }
 
+    // Flinks account numbers sometimes carry a non-numeric prefix (e.g. the
+    // FlinksCapital sandbox's "BA-12345" for business accounts). Normalize
+    // to digits-only, keeping the original under AccountNumberRaw.
+    if (Array.isArray(payload.Accounts)) {
+      payload.Accounts = payload.Accounts.map((acct) => {
+        if (typeof acct.AccountNumber !== 'string') return acct;
+        const digits = acct.AccountNumber.replace(/\D/g, '');
+        if (!digits || digits === acct.AccountNumber) return acct;
+        return { ...acct, AccountNumber: digits, AccountNumberRaw: acct.AccountNumber };
+      });
+    }
+
     if (!payload.Accounts && response.status === 200) {
       return res.status(502).json({
         error: 'GetAccountsDetail returned 200 without an Accounts array',

@@ -18,12 +18,6 @@ let completed = false;
 let loadingAccounts = false;
 let selectedAccountIds = null;
 
-function digitsOnly(value) {
-  if (!value) return '—';
-  const digits = String(value).replace(/\D/g, '');
-  return digits || '—';
-}
-
 function money(value, currency = 'CAD') {
   if (value == null || Number.isNaN(Number(value))) return '—';
   try {
@@ -159,7 +153,7 @@ function renderAccounts(payload) {
         <dt>Institution</dt><dd>${escapeHtml(institution)}</dd>
         <dt>Institution Number</dt><dd>${escapeHtml(acct.InstitutionNumber || '—')}</dd>
         <dt>Transit Number</dt><dd>${escapeHtml(acct.TransitNumber || '—')}</dd>
-        <dt>Account Number</dt><dd title="${escapeHtml(acct.AccountNumber || '—')}">${escapeHtml(digitsOnly(acct.AccountNumber))}</dd>
+        <dt>Account Number</dt><dd title="${escapeHtml(acct.AccountNumberRaw || acct.AccountNumber || '—')}">${escapeHtml(acct.AccountNumber || '—')}</dd>
         <dt>Type</dt><dd>${escapeHtml(acct.Category || acct.Type || '—')}</dd>
         <dt>Holder</dt><dd>${escapeHtml(holder)}</dd>
         <dt>Current balance</dt><dd>${escapeHtml(money(balance.Current ?? balance.available ?? balance.Available, currency))}</dd>
