@@ -272,14 +272,7 @@ app.post('/api/accounts', async (req, res) => {
       if (filtered.length) payload.Accounts = filtered;
     }
 
-    // A single selected account is returned flat (Account) rather than
-    // wrapped in an Accounts array, per the requested response shape.
-    if (Array.isArray(payload.Accounts) && payload.Accounts.length === 1) {
-      payload.Account = payload.Accounts[0];
-      delete payload.Accounts;
-    }
-
-    if (!payload.Accounts && !payload.Account && response.status === 200) {
+    if (!payload.Accounts && response.status === 200) {
       return res.status(502).json({
         error: 'GetAccountsDetail returned 200 without an Accounts array',
         details: payload,

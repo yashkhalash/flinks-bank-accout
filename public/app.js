@@ -123,9 +123,7 @@ function escapeHtml(value) {
 
 function renderAccounts(payload) {
   accountsEl.innerHTML = '';
-  const list = payload.Account
-    ? [payload.Account]
-    : payload.Accounts || payload.accounts || [];
+  const list = payload.Accounts || payload.accounts || [];
   const institution =
     payload.InstitutionName ||
     payload.Institution ||
@@ -190,8 +188,7 @@ async function fetchAccounts(loginId, institution, accountIds, requestId) {
       accounts.Institution = institution;
     }
 
-    const hasAccounts =
-      !!accounts.Account || (Array.isArray(accounts.Accounts) && accounts.Accounts.length > 0);
+    const hasAccounts = Array.isArray(accounts.Accounts) && accounts.Accounts.length > 0;
     resultEl.textContent = JSON.stringify(accounts, null, 2);
 
     if (res.ok && hasAccounts) {
