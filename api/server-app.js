@@ -194,6 +194,14 @@ app.post('/api/authorize', async (req, res) => {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function asJsonBody(data) {
+  if (data && typeof data === 'object' && !Buffer.isBuffer(data)) return data;
+  return {
+    error: 'Flinks returned a non-JSON response',
+    details: typeof data === 'string' ? data.slice(0, 500) : String(data),
+  };
+}
+
 // After the iframe returns a loginId (REDIRECT event), exchange it for a
 // RequestId via cached Authorize, then poll GetAccountsDetail.
 // Docs: https://docs.flinks.com/guides/connect/standard-integration
@@ -221,15 +229,20 @@ app.post('/api/accounts', async (req, res) => {
       }
     }
 
-    const authKey = await generateAuthorizeToken();
+    // Data endpoints use x-api-key only (not flinks-auth-key).
     const headers = {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'flinks-auth-key': authKey,
       'x-api-key': FLINKS_API_KEY,
     };
 
-    const detailBody = { RequestId: requestId };
+    const detailBody = {
+      RequestId: requestId,
+      WithAccountIdentity: true,
+      WithKYC: true,
+      WithTransactions: true,
+      DaysOfTransactions: 'Days90',
+    };
     if (Array.isArray(accountIds) && accountIds.length) {
       detailBody.AccountsFilter = accountIds;
     }
@@ -240,17 +253,58 @@ app.post('/api/accounts', async (req, res) => {
       { headers, validateStatus: () => true }
     );
 
-    for (let i = 0; i < 10 && response.status === 202; i++) {
+    // 202 → poll GET /GetAccountsDetailAsync/{requestId} every ~10s
+    for (let i = 0; i < 18 && response.status === 202; i++) {
       await sleep(10000);
-      response = await axios.post(
-        `${FLINKS_API_BASE_URL}/${FLINKS_CUSTOMER_ID}/BankingServices/GetAccountsDetailAsync`,
-        { RequestId: requestId },
+      response = await axios.get(
+        `${FLINKS_API_BASE_URL}/${FLINKS_CUSTOMER_ID}/BankingServices/GetAccountsDetailAsync/${requestId}`,
         { headers, validateStatus: () => true }
       );
     }
 
-    res.status(response.status).json({
-      ...response.data,
+    const payload = asJsonBody(response.data);
+
+    // Belt-and-suspenders: Flinks' AccountsFilter isn't always honored
+    // (notably in the FlinksCapital demo sandbox), so re-filter here too.
+    if (Array.isArray(accountIds) && accountIds.length && Array.isArray(payload.Accounts)) {
+      const idSet = new Set(accountIds);
+      const filtered = payload.Accounts.filter((acct) => idSet.has(acct.Id));
+      if (filtered.length) payload.Accounts = filtered;
+    }
+
+    // A single selected account is returned flat (Account) rather than
+    // wrapped in an Accounts array, per the requested response shape.
+    if (Array.isArray(payload.Accounts) && payload.Accounts.length === 1) {
+      payload.Account = payload.Accounts[0];
+      delete payload.Accounts;
+    }
+
+    if (!payload.Accounts && !payload.Account && response.status === 200) {
+      return res.status(502).json({
+        error: 'GetAccountsDetail returned 200 without an Accounts array',
+        details: payload,
+        _meta: { loginId, requestId },
+      });
+    }
+
+    if (response.status === 202) {
+      return res.status(202).json({
+        error: 'Account details still processing — try again in a moment',
+        details: payload,
+        _meta: { loginId, requestId },
+      });
+    }
+
+    if (response.status >= 400 || payload.error) {
+      return res.status(response.status >= 400 ? response.status : 502).json({
+        error: 'Failed to fetch account details from Flinks',
+        details: payload,
+        _meta: { loginId, requestId },
+      });
+    }
+
+    return res.status(response.status).json({
+      ...payload,
       _meta: { loginId, requestId },
     });
   } catch (err) {

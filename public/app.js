@@ -16,6 +16,7 @@ const FLINKS_ORIGIN_RE = /(^|\.)(private\.fin\.ag|flinks\.com)$/i;
 
 let completed = false;
 let loadingAccounts = false;
+let selectedAccountIds = null;
 
 function money(value, currency = 'CAD') {
   if (value == null || Number.isNaN(Number(value))) return '—';
@@ -122,7 +123,9 @@ function escapeHtml(value) {
 
 function renderAccounts(payload) {
   accountsEl.innerHTML = '';
-  const list = payload.Accounts || payload.accounts || [];
+  const list = payload.Account
+    ? [payload.Account]
+    : payload.Accounts || payload.accounts || [];
   const institution =
     payload.InstitutionName ||
     payload.Institution ||
@@ -150,7 +153,9 @@ function renderAccounts(payload) {
       <h3>${escapeHtml(acct.Title || acct.Type || 'Account')}</h3>
       <dl class="account-meta">
         <dt>Institution</dt><dd>${escapeHtml(institution)}</dd>
-        <dt>Account #</dt><dd>${escapeHtml(acct.AccountNumber || acct.TransitNumber || '—')}</dd>
+        <dt>Institution Number</dt><dd>${escapeHtml(acct.InstitutionNumber || '—')}</dd>
+        <dt>Transit Number</dt><dd>${escapeHtml(acct.TransitNumber || '—')}</dd>
+        <dt>Account Number</dt><dd>${escapeHtml(acct.AccountNumber || '—')}</dd>
         <dt>Type</dt><dd>${escapeHtml(acct.Category || acct.Type || '—')}</dd>
         <dt>Holder</dt><dd>${escapeHtml(holder)}</dd>
         <dt>Current balance</dt><dd>${escapeHtml(money(balance.Current ?? balance.available ?? balance.Available, currency))}</dd>
@@ -164,7 +169,7 @@ function renderAccounts(payload) {
   }
 }
 
-async function fetchAccounts(loginId, institution, accountIds) {
+async function fetchAccounts(loginId, institution, accountIds, requestId) {
   if (loadingAccounts) return;
   loadingAccounts = true;
 
@@ -178,18 +183,21 @@ async function fetchAccounts(loginId, institution, accountIds) {
     const res = await fetch('/api/accounts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ loginId, accountIds }),
+      body: JSON.stringify({ loginId, accountIds, requestId }),
     });
     const accounts = await res.json();
     if (institution && !accounts.Institution && !accounts.InstitutionName) {
       accounts.Institution = institution;
     }
 
-    if (res.ok) {
+    const hasAccounts =
+      !!accounts.Account || (Array.isArray(accounts.Accounts) && accounts.Accounts.length > 0);
+    resultEl.textContent = JSON.stringify(accounts, null, 2);
+
+    if (res.ok && hasAccounts) {
       setStep('confirmation', 'done');
       stepEls.confirmation.classList.add('active');
-      statusEl.textContent =
-        'Done — Confirmation (same as Dashboard preview). Account details are below.';
+      statusEl.textContent = 'Done — account details loaded.';
       successSub.textContent = institution
         ? `Connected to ${institution}. Details from GetAccountsDetail:`
         : 'Account details from GetAccountsDetail:';
@@ -197,10 +205,11 @@ async function fetchAccounts(loginId, institution, accountIds) {
       renderAccounts(accounts);
     } else {
       setStep('selection', 'error');
-      statusEl.textContent = 'Failed to fetch account details.';
+      statusEl.textContent = accounts.error || 'Failed to fetch account details.';
+      accountsEl.innerHTML = `<p class="hint">${escapeHtml(
+        accounts.error || 'No Accounts array in the response. See raw JSON below.'
+      )}</p>`;
     }
-
-    resultEl.textContent = JSON.stringify(accounts, null, 2);
   } catch (err) {
     setStep('selection', 'error');
     statusEl.textContent = 'Error fetching accounts.';
@@ -231,6 +240,11 @@ function onFlinksMessage(event) {
     statusEl.textContent = `Flinks: ${step}`;
     const mapped = mapFlinksStep(step);
     if (mapped && !completed) setStep(mapped);
+  }
+
+  if (step === 'ACCOUNT_SELECTED') {
+    const ids = accountIdFromRedirect(data);
+    if (ids && ids.length) selectedAccountIds = ids;
   }
 
   if (data.flinksCode) {
@@ -271,18 +285,21 @@ function onFlinksMessage(event) {
   setStep('confirmation', 'done');
   stepEls.confirmation.classList.add('active');
   statusEl.textContent =
-    'Confirmation — success screen in the iframe (like Dashboard). Loading account details…';
+    'Confirmation — success screen in the iframe. Loading account details…';
+  const requestId = data.requestId || data.RequestId || null;
   resultEl.textContent = JSON.stringify(
-    { loginId, institution: data.institution, accountId: data.accountId },
+    { loginId, institution: data.institution, accountId: data.accountId, requestId },
     null,
     2
   );
-  fetchAccounts(loginId, data.institution, accountIdFromRedirect(data));
+  const accountIds = accountIdFromRedirect(data) || selectedAccountIds;
+  fetchAccounts(loginId, data.institution, accountIds, requestId);
 }
 
 async function loadConnect() {
   completed = false;
   loadingAccounts = false;
+  selectedAccountIds = null;
   showIframe();
   showLoader('Loading Flinks Connect…');
   setStep('consent');
